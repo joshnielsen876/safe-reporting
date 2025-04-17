@@ -1,8 +1,8 @@
 import sqlite3
 import requests
 
-DB_PATH = "/Workspace/Users/ag95@cdc.gov/Llama index test/Safe reporting guidelines/articles.db"
-JINA_API_KEY = "jina_e70115924c014d8882e391ebde33bdd6Y1Gtwd1aEc8ZSo7seldBB8jxXBtI"
+DB_PATH = "articles.db"
+JINA_API_KEY = ""
 
 headers = {
     'Authorization': f'Bearer {JINA_API_KEY}',

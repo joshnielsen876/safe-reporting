@@ -1,7 +1,7 @@
 import sqlite3
 
 # Define database file path (adjust if needed)
-DB_PATH = "/Workspace/Users/ag95@cdc.gov/Llama index test/Safe reporting guidelines/articles.db"
+DB_PATH = "articles.db"
 
 def create_database():
     conn = sqlite3.connect(DB_PATH)

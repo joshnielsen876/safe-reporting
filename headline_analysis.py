@@ -8,27 +8,10 @@ from azure.identity import ClientSecretCredential
 from openai import AzureOpenAI
 
 # Database path (adjust for your Databricks workspace)
-DB_PATH = "/Workspace/Users/ag95@cdc.gov/Llama index test/Safe reporting guidelines/articles.db"
+DB_PATH = "articles.db"
 
 # 🔑 Function to Acquire Azure Credentials
-def AcquireCredentials():
-    credential = ClientSecretCredential(
-        tenant_id="9ce70869-60db-44fd-abe8-d2767077fc8f",
-        client_id = "0e38bfdf-13a1-4986-850d-c909912f9a26",
-        client_secret=dbutils.secrets.get(scope="dbs-scope-NCIPC-OD-AIPILOT" , key="EDAV-NCIPC-OD-AIPILOT-SP")
-    )
-    access_token  = credential.get_token("https://cognitiveservices.azure.com/.default").token
-    client = AzureOpenAI(
-        api_key=access_token,
-        azure_endpoint="https://edav-dev-openai-eastus2-shared.openai.azure.com/",
-        api_version="2024-08-01-preview",
-        azure_deployment="gpt-4o-mini-nofilter")#,
-        # model='gpt-4o')
-    
-    
-    os.environ["AZURE_OPENAI_API_KEY"] = access_token
-    os.environ["AZURE_OPENAI_ENDPOINT"] = "https://edav-dev-openai-eastus2-shared.openai.azure.com/"
-    return client
+
 
 # 🎯 Define Pydantic Model for Structured Output
 class Summary(BaseModel):

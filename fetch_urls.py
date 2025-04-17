@@ -2,9 +2,9 @@ import sqlite3
 import requests
 import time
 
-DB_PATH = "/Workspace/Users/ag95@cdc.gov/Llama index test/Safe reporting guidelines/articles.db"
-API_KEY = "AIzaSyC6eIbdhP0b5XUaaUsQfoN8uOO4lohlTe8"
-CX = "37c37a4a44e6d4d11"
+DB_PATH = "articles.db"
+API_KEY = ""
+CX = ""
 # QUERY = "tWitch Boss suicide news after: 2024-09-19 before 2024-10-04"
 
 def google_search(query, api_key, cx, max_results=10):
