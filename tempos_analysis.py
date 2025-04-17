@@ -1,8 +1,6 @@
 import sqlite3
 from pydantic import BaseModel, Field
-from langchain_core.output_parsers import JsonOutputParser
-from langchain.prompts import PromptTemplate
-from langchain_openai import AzureChatOpenAI
+from openai_utils import get_chat_model, get_structured_output_parser, create_prompt_template
 
 # Database path (adjust for your Databricks workspace)
 DB_PATH = "articles.db"
@@ -24,14 +22,13 @@ class Summary(BaseModel):
     reasoning: str = Field(description="Verbose reasoning for scores, citing snippets from the article")
 
 # 📌 Function to Run LLM TEMPOS Analysis
-def GetJson(article_text):
-    llm = AcquireCredentials()
+def analyze_article(article_text):
+    """Analyze an article using OpenAI for TEMPOS scoring"""
+    llm = get_chat_model()
     struct_llm = llm.with_structured_output(Summary)
-    output_parser = JsonOutputParser(pydantic_object=Summary, partial=True)
+    output_parser = get_structured_output_parser(Summary)
 
-    # Prompt template
-    prompt = PromptTemplate(
-        template="""
+    prompt_template = """
     You are an expert at the CDC. You will be provided with the text of a news article that is reporting on the suicide of a high profile \
     figure. First, determine if the article is valid or unrelated (e.g., error messages, login required, blank pages).\
     If it is unrelated, set "is_unrelated" to True and ignore the other fields. Otherwise, provide the full analysis. \
@@ -44,7 +41,7 @@ def GetJson(article_text):
     explicitly presents or strongly implies that suicide is a common, acceptable, or inevitable response to hardship; frames suicide as \
     "a way out" or a way of taking control of one's circumstances. A mixed articles which scores 1 doesn't portray suicide as an escape or \
     inevitable response to hardship, but fails to include that suicide is preventable and that resources are available to those who are \
-    struggling. For clarity, 
+    struggling.
 
     2. Factual information. A helpful article which would score a 2 includes information that is clearly factual in nature, not speculative. \
     May include quotes or objective information from informed sources (e.g. people or organizations with mental health or suicide prevention\
@@ -90,7 +87,7 @@ def GetJson(article_text):
     positive light; portrays their life in an idealized way or glamorized way without acknowledging struggles. NOTE: glamorizing suicide is \
     different from glamorizing the life of the deceased, especially when the deceased is a celebrity. It is normal to celebrate the life of the\
     person and celebration of life should not be considered as glamorizing suicide. An example of harmful glamorization would be content like\
-    "It’s telling that the deceased killed himself in this picturesque, story tale village" which romanticizes the suicide, or "His shocking \
+    "It's telling that the deceased killed himself in this picturesque, story tale village" which romanticizes the suicide, or "His shocking \
     death by suicide led to an outpouring of grief and support from celebrities around the world", which falsely implies that suicide is how \
     you get people to show love and support. 
 
@@ -106,20 +103,20 @@ def GetJson(article_text):
     For each criteria, the options are 0, 1, or 2. This is the article to evaluate:\n{context}
 
     Remember to make your decision based on the above safe reporting guidelines. {format_instructions}
+    """
 
-            
-    """,
-        description="TEMPOS Analysis",
+    prompt = create_prompt_template(
+        template=prompt_template,
         input_variables=["context"],
-        partial_variables={"format_instructions": output_parser.get_format_instructions()},
+        format_instructions=output_parser.get_format_instructions()
     )
 
     chain = prompt | struct_llm
-    jsonResults = chain.invoke({"context": article_text})
-    return jsonResults
+    return chain.invoke({"context": article_text})
 
 # 🔄 Update Database with TEMPOS Scores
 def update_tempos_scores():
+    """Update database with TEMPOS analysis scores"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -134,7 +131,7 @@ def update_tempos_scores():
         print(f"Processing TEMPOS analysis for: {url}")  # Debugging output
 
         try:
-            scores = GetJson(article_text)
+            scores = analyze_article(article_text)
 
             # 🛑 Skip updating the database if the article is unrelated
             if scores.is_unrelated:

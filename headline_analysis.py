@@ -1,17 +1,9 @@
 import sqlite3
-import os
 from pydantic import BaseModel, Field
-from langchain_core.output_parsers import JsonOutputParser
-from langchain.prompts import PromptTemplate
-from langchain_openai import AzureChatOpenAI
-from azure.identity import ClientSecretCredential
-from openai import AzureOpenAI
+from openai_utils import get_chat_model, get_structured_output_parser, create_prompt_template
 
 # Database path (adjust for your Databricks workspace)
 DB_PATH = "articles.db"
-
-# 🔑 Function to Acquire Azure Credentials
-
 
 # 🎯 Define Pydantic Model for Structured Output
 class Summary(BaseModel):
@@ -22,15 +14,13 @@ class Summary(BaseModel):
     protective: bool = Field(description="indicator if the title is protective")
     reasoning: str = Field(description="reasoning for indicator decisions")
 
-# 📌 Function to Run LLM Headline Classification
-def GetJson(headline):
-    llm = AcquireCredentials()
+def analyze_headline(headline):
+    """Analyze a headline using OpenAI"""
+    llm = get_chat_model()
     struct_llm = llm.with_structured_output(Summary)
-    output_parser = JsonOutputParser(pydantic_object=Summary, partial=True)
+    output_parser = get_structured_output_parser(Summary)
 
-    # Prompt template
-    prompt = PromptTemplate(
-        template="""
+    prompt_template = """
     You are an expert at the CDC. You will be provided with the title of a news article related to the suicide of a high profile individual.
     You must determine if the title is or is not protective, factual, sensational or harmful. Only one label is selected per headline. and you must provide your reasoning. Here are guidelines for labeling: 
     
@@ -58,30 +48,24 @@ def GetJson(headline):
     - Framing: Oversimplify suicide as a single-cause phenomenon or frame it as inevitable, ignoring opportunities for prevention.
     - Negativity: Draw attention to problems instead of solutions, perpetuating a sense of hopelessness, or that the problem of suicide is too hard to solve.
 
-    Below are some examples to illustrate how this should be done.
-
-    Example 1: (Headline: Higher suicide rates tied to lack of basics: internet, insurance, income, CDC says; harmful: True; sensational: False;  factual: False; protective: False;\
-    reasoning: Frames factors like internet, insurance, and income primarily as barriers rather than highlighting them as potential solutions.)
-    Example 2: (Headline: Study finds social and economic factors crucial in preventing suicide, CDC reports; harmful: False; sensational: False; neutral: False; protective: True\
-    reasoning: Emphasizes the preventative power of the identified factors, showcasing the potential for effective interventions.)
-    Example 3: (Headline: CDC data reveal three social drivers that influence suicide risk; harmful: False; sensational: False; neutral: True; protective: False; \
-    reasoning: Presents accurate and factual information neutrally without explicit focus on prevention strategies, but effectively summarizes the research findings.) 
     Determine if the title is Protective, Neutral, Sensational, or Harmful. Only one label is selected per headline, and you must provide reasoning.
     
     {format_instructions}
     This is the headline to score:\n{context}
-    """,
-        description="Headline Analysis",
+    """
+
+    prompt = create_prompt_template(
+        template=prompt_template,
         input_variables=["context"],
-        partial_variables={"format_instructions": output_parser.get_format_instructions()},
+        format_instructions=output_parser.get_format_instructions()
     )
 
     chain = prompt | struct_llm
-    jsonResults = chain.invoke({"context": headline})
-    return jsonResults
+    return chain.invoke({"context": headline})
 
 # 🔄 Update Database with Headline Scores
 def update_headline_scores():
+    """Update database with headline analysis scores"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -96,7 +80,7 @@ def update_headline_scores():
         print(f"Processing: {headline}")  # Debugging output
 
         try:
-            scores = GetJson(headline)
+            scores = analyze_headline(headline)
 
             cursor.execute("""
                 UPDATE articles 
